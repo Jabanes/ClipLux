@@ -2,14 +2,11 @@
 
 import React, { useRef, useEffect, useState } from "react";
 import { useScroll, useTransform, useMotionValueEvent, motion } from "framer-motion";
+import { frames } from "./frameImages";
 
-const FRAME_COUNT = 120; // As per requirement, though folder says 40? I'll check.
-// The folder list showed 40 frames: ezgif-frame-001.jpg to ezgif-frame-040.jpg.
-// I will adhere to the actual file count found (40) but keep the code adaptable.
-// If the user said 120 but provided 40, I should use 40 to avoid 404s.
-// I'll add a check or just use 40 for now.
 
-const ACTUAL_FRAME_COUNT = 40;
+// const FRAME_COUNT = 120; 
+// const ACTUAL_FRAME_COUNT = 40;
 
 export default function ClipLuxScroll() {
     const containerRef = useRef<HTMLDivElement>(null);
@@ -22,32 +19,35 @@ export default function ClipLuxScroll() {
         offset: ["start start", "end end"],
     });
 
-    // Map scroll (0-1) to frame index (0 - ACTUAL_FRAME_COUNT-1)
-    const currentIndex = useTransform(scrollYProgress, [0, 1], [1, ACTUAL_FRAME_COUNT]);
+    // Map scroll (0-1) to frame index (0 - frames.length - 1)
+    const currentIndex = useTransform(scrollYProgress, [0, 1], [1, frames.length]);
 
-    // Preload images
+
+
+    // Preload images - now much simpler as they are imported
     useEffect(() => {
         const loadImages = async () => {
             const loadedImages: HTMLImageElement[] = [];
 
-            // Filename pattern: ezgif-frame-001.jpg
-            for (let i = 1; i <= ACTUAL_FRAME_COUNT; i++) {
+            for (let i = 0; i < frames.length; i++) {
                 const img = new Image();
-                const frameStr = i.toString().padStart(3, "0");
-                img.src = `/frames/ezgif-frame-${frameStr}.jpg`;
+                // When imported via Next.js/Webpack, the import is an object with a src string or the string itself
+                const src = typeof frames[i] === 'string' ? frames[i] : (frames[i] as any).src;
+                img.src = src;
+
                 await new Promise((resolve) => {
-                    img.onload = () => {
-                        console.log(`Loaded frame ${i}`);
+                    if (img.complete) {
                         resolve(true);
-                    };
-                    img.onerror = (e) => {
-                        console.error(`Failed to load frame ${i} from ${img.src}`);
-                        resolve(false);
-                    };
+                    } else {
+                        img.onload = () => resolve(true);
+                        img.onerror = () => {
+                            console.error(`Failed to load frame ${i + 1}`);
+                            resolve(false);
+                        };
+                    }
                 });
                 loadedImages.push(img);
             }
-            console.log(`Debug: Loaded ${loadedImages.length} images`);
             setImages(loadedImages);
             setIsLoading(false);
         };
