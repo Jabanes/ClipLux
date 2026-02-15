@@ -1,0 +1,217 @@
+"use client";
+
+import React, { useRef, useEffect, useState } from "react";
+import { useScroll, useTransform, useMotionValueEvent, motion } from "framer-motion";
+
+const FRAME_COUNT = 120; // As per requirement, though folder says 40? I'll check.
+// The folder list showed 40 frames: ezgif-frame-001.jpg to ezgif-frame-040.jpg.
+// I will adhere to the actual file count found (40) but keep the code adaptable.
+// If the user said 120 but provided 40, I should use 40 to avoid 404s.
+// I'll add a check or just use 40 for now.
+
+const ACTUAL_FRAME_COUNT = 40;
+
+export default function ClipLuxScroll() {
+    const containerRef = useRef<HTMLDivElement>(null);
+    const canvasRef = useRef<HTMLCanvasElement>(null);
+    const [images, setImages] = useState<HTMLImageElement[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+
+    const { scrollYProgress } = useScroll({
+        target: containerRef,
+        offset: ["start start", "end end"],
+    });
+
+    // Map scroll (0-1) to frame index (0 - ACTUAL_FRAME_COUNT-1)
+    const currentIndex = useTransform(scrollYProgress, [0, 1], [1, ACTUAL_FRAME_COUNT]);
+
+    // Preload images
+    useEffect(() => {
+        const loadImages = async () => {
+            const loadedImages: HTMLImageElement[] = [];
+
+            // Filename pattern: ezgif-frame-001.jpg
+            for (let i = 1; i <= ACTUAL_FRAME_COUNT; i++) {
+                const img = new Image();
+                const frameStr = i.toString().padStart(3, "0");
+                img.src = `/frames/ezgif-frame-${frameStr}.jpg`;
+                await new Promise((resolve) => {
+                    img.onload = () => {
+                        console.log(`Loaded frame ${i}`);
+                        resolve(true);
+                    };
+                    img.onerror = (e) => {
+                        console.error(`Failed to load frame ${i} from ${img.src}`);
+                        resolve(false);
+                    };
+                });
+                loadedImages.push(img);
+            }
+            console.log(`Debug: Loaded ${loadedImages.length} images`);
+            setImages(loadedImages);
+            setIsLoading(false);
+        };
+
+        loadImages();
+    }, []);
+
+    // Draw to canvas
+    const render = (index: number) => {
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) return;
+
+        // Ensure index is integer and within bounds
+        let frameIndex = Math.floor(index) - 1;
+        if (frameIndex < 0) frameIndex = 0;
+        if (frameIndex >= images.length) frameIndex = images.length - 1;
+
+        const img = images[frameIndex];
+
+        // Helper to clear canvas
+        const clear = () => {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = "#FFFFFF";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
+
+        if (!img || !img.complete || img.naturalWidth === 0) {
+            // Image not loaded or broken
+            clear();
+            // Optional: Draw placeholder text
+            // ctx.fillStyle = "#ccc";
+            // ctx.fillText("Frame missing", 10, 50);
+            return;
+        }
+
+        // Clear and draw
+        // Calculate aspect ratio to "contain"
+        const canvasWidth = canvas.width;
+        const canvasHeight = canvas.height;
+        const imgRatio = img.width / img.height;
+        const canvasRatio = canvasWidth / canvasHeight;
+
+        let drawWidth, drawHeight, offsetX, offsetY;
+
+        if (canvasRatio > imgRatio) {
+            drawHeight = canvasHeight;
+            drawWidth = drawHeight * imgRatio;
+            offsetX = (canvasWidth - drawWidth) / 2;
+            offsetY = 0;
+        } else {
+            drawWidth = canvasWidth;
+            drawHeight = drawWidth / imgRatio;
+            offsetX = 0;
+            offsetY = (canvasHeight - drawHeight) / 2;
+        }
+
+        clear();
+        try {
+            ctx.drawImage(img, offsetX, offsetY, drawWidth, drawHeight);
+        } catch (e) {
+            console.error("Error drawing image:", e);
+        }
+    };
+
+    // Resize handler
+    useEffect(() => {
+        const handleResize = () => {
+            if (canvasRef.current) {
+                canvasRef.current.width = window.innerWidth;
+                canvasRef.current.height = window.innerHeight;
+                // Re-render current frame
+                const current = currentIndex.get();
+                render(current);
+            }
+        };
+        window.addEventListener("resize", handleResize);
+        handleResize(); // Init size
+        return () => window.removeEventListener("resize", handleResize);
+    }, [images]); // Re-bind if images change
+
+    // Update on scroll
+    useMotionValueEvent(currentIndex, "change", (latest) => {
+        if (!isLoading && images.length > 0) {
+            render(latest);
+        }
+    });
+
+    return (
+        <div ref={containerRef} className="h-[400vh] relative">
+            <div className="sticky top-0 h-screen w-full overflow-hidden">
+                {isLoading && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-white z-50">
+                        <div className="text-black/50 text-sm animate-pulse">Loading ClipLux Experience...</div>
+                    </div>
+                )}
+                <canvas ref={canvasRef} className="block w-full h-full" />
+
+                {/* Story Overlays - Using absolute positioning within the sticky container */}
+                <StoryOverlay scrollYProgress={scrollYProgress} />
+            </div>
+        </div>
+    );
+}
+
+
+function StoryOverlay({ scrollYProgress }: { scrollYProgress: any }) {
+    // Helper to fade in/out based on range
+    const OpacitySection = ({ start, end, children, align = "center" }: any) => {
+        const opacity = useTransform(scrollYProgress,
+            [start - 0.05, start, end, end + 0.05],
+            [0, 1, 1, 0]
+        );
+        const y = useTransform(scrollYProgress,
+            [start - 0.05, end + 0.05],
+            [50, -50]
+        );
+
+        const alignmentClasses = {
+            left: "items-start text-left pl-10 md:pl-20",
+            right: "items-end text-right pr-10 md:pr-20",
+            center: "items-center text-center"
+        };
+
+        return (
+            <motion.div
+                style={{ opacity, y }}
+                className={`absolute inset-0 flex flex-col justify-center pointer-events-none ${alignmentClasses[align as keyof typeof alignmentClasses]}`}
+            >
+                {children}
+            </motion.div>
+        );
+    };
+
+    return (
+        <div className="absolute inset-0 w-full h-full pointer-events-none">
+            {/* 0% - 20% */}
+            <OpacitySection start={0.0} end={0.15} align="center">
+                <h2 className="text-4xl md:text-6xl font-bold tracking-tight text-black/90">Precision Grooming.</h2>
+                <p className="mt-2 text-lg text-black/60">Clean cuts. Zero mess.</p>
+            </OpacitySection>
+
+            {/* 30% */}
+            <OpacitySection start={0.25} end={0.4} align="left">
+                <h3 className="text-3xl md:text-5xl font-semibold text-black/80">Designed for control.</h3>
+                <p className="mt-2 text-black/50 max-w-md">Ergonomic grip that fits perfectly in your hand.</p>
+            </OpacitySection>
+
+            {/* 60% */}
+            <OpacitySection start={0.55} end={0.7} align="right">
+                <h3 className="text-3xl md:text-5xl font-semibold text-black/80">Quiet motor.<br />Clean trim.</h3>
+                <p className="mt-2 text-black/50 max-w-md">Whisper-quiet technology meets medical-grade steel.</p>
+            </OpacitySection>
+
+            {/* 90% */}
+            <OpacitySection start={0.85} end={0.95} align="center">
+                <h2 className="text-4xl md:text-6xl font-bold text-black/90">Premium results.</h2>
+                <div className="mt-6 pointer-events-auto">
+                    <button className="px-8 py-3 bg-black text-white rounded-full text-lg shadow-lg hover:scale-105 transition-all">
+                        Shop ClipLux
+                    </button>
+                </div>
+            </OpacitySection>
+        </div>
+    );
+}
