@@ -1,37 +1,55 @@
 const fs = require('fs');
 const path = require('path');
 
+const logFile = path.join(__dirname, 'fix_assets.log');
+function log(msg) {
+    console.log(msg);
+    fs.appendFileSync(logFile, msg + '\r\n');
+}
+
 const srcDir = path.join(__dirname, 'assets', 'frames');
 const publicDir = path.join(__dirname, 'public');
 const framesDir = path.join(publicDir, 'frames');
 
-console.log("Checking directories...");
+log("Checking directories at " + new Date().toISOString());
+log(`srcDir: ${srcDir}`);
+log(`publicDir: ${publicDir}`);
+log(`framesDir: ${framesDir}`);
 
 if (!fs.existsSync(publicDir)) {
-    console.log("Creating public dir...");
+    log("Creating public dir...");
     try {
         fs.mkdirSync(publicDir);
-    } catch (e) { console.error("Failed to create public:", e); }
+    } catch (e) { log(`Failed to create public: ${e}`); }
 }
 
 if (!fs.existsSync(framesDir)) {
-    console.log("Creating public/frames dir...");
+    log("Creating public/frames dir...");
     try {
         fs.mkdirSync(framesDir);
-    } catch (e) { console.error("Failed to create public/frames:", e); }
+    } catch (e) { log(`Failed to create public/frames: ${e}`); }
+} else {
+    // Clean existing frames to support removal
+    log("Cleaning public/frames dir...");
+    try {
+        const existingFiles = fs.readdirSync(framesDir);
+        existingFiles.forEach(file => {
+            fs.unlinkSync(path.join(framesDir, file));
+        });
+    } catch (e) { log(`Failed to clean public/frames: ${e}`); }
 }
 
 if (fs.existsSync(srcDir)) {
-    console.log("Source dir exists. Copying files...");
+    log("Source dir exists. Copying files...");
     const files = fs.readdirSync(srcDir);
     files.forEach(file => {
         try {
             fs.copyFileSync(path.join(srcDir, file), path.join(framesDir, file));
-            console.log(`Copied ${file}`);
+            log(`Copied ${file}`);
         } catch (e) {
-            console.error(`Failed to copy ${file}:`, e);
+            log(`Failed to copy ${file}: ${e}`);
         }
     });
 } else {
-    console.error("Source assets/frames dir NOT found!");
+    log("Source assets/frames dir NOT found!");
 }
