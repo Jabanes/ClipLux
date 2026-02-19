@@ -72,7 +72,7 @@ export default function ClipLuxScroll() {
         // Helper to clear canvas
         const clear = () => {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-            ctx.fillStyle = "#FFFFFF";
+            ctx.fillStyle = "#000000";
             ctx.fillRect(0, 0, canvas.width, canvas.height);
         }
 
@@ -108,6 +108,8 @@ export default function ClipLuxScroll() {
 
         clear();
         try {
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = "high";
             ctx.drawImage(img, offsetX, offsetY, drawWidth, drawHeight);
         } catch (e) {
             console.error("Error drawing image:", e);
@@ -118,8 +120,18 @@ export default function ClipLuxScroll() {
     useEffect(() => {
         const handleResize = () => {
             if (canvasRef.current) {
-                canvasRef.current.width = window.innerWidth;
-                canvasRef.current.height = window.innerHeight;
+                const canvas = canvasRef.current;
+                const dpr = window.devicePixelRatio || 1;
+                canvas.width = window.innerWidth * dpr;
+                canvas.height = window.innerHeight * dpr;
+                canvas.style.width = `${window.innerWidth}px`;
+                canvas.style.height = `${window.innerHeight}px`;
+
+                const ctx = canvas.getContext("2d");
+                if (ctx) {
+                    ctx.scale(dpr, dpr);
+                }
+
                 // Re-render current frame
                 const current = currentIndex.get();
                 render(current);
@@ -141,8 +153,8 @@ export default function ClipLuxScroll() {
         <div ref={containerRef} className="h-[400vh] relative">
             <div className="sticky top-0 h-screen w-full overflow-hidden">
                 {isLoading && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-white z-50">
-                        <div className="text-black/50 text-sm animate-pulse">Loading ClipLux Experience...</div>
+                    <div className="absolute inset-0 flex items-center justify-center bg-black z-50">
+                        <div className="text-white/50 text-sm animate-pulse">Loading ClipLux Experience...</div>
                     </div>
                 )}
                 <canvas ref={canvasRef} className="block w-full h-full" />
@@ -187,27 +199,27 @@ function StoryOverlay({ scrollYProgress }: { scrollYProgress: any }) {
         <div className="absolute inset-0 w-full h-full pointer-events-none">
             {/* 0% - 20% */}
             <OpacitySection start={0.0} end={0.15} align="center">
-                <h2 className="text-4xl md:text-6xl font-bold tracking-tight text-black/90">Precision Grooming.</h2>
-                <p className="mt-2 text-lg text-black/60">Clean cuts. Zero mess.</p>
+                <h2 className="text-4xl md:text-6xl font-bold tracking-tight text-white/90">Precision Grooming.</h2>
+                <p className="mt-2 text-lg text-white/60 font-light">Clean cuts. Zero mess.</p>
             </OpacitySection>
 
             {/* 30% */}
             <OpacitySection start={0.25} end={0.4} align="left">
-                <h3 className="text-3xl md:text-5xl font-semibold text-black/80">Designed for control.</h3>
-                <p className="mt-2 text-black/50 max-w-md">Ergonomic grip that fits perfectly in your hand.</p>
+                <h3 className="text-3xl md:text-5xl font-semibold text-white/80">Designed for control.</h3>
+                <p className="mt-2 text-white/50 max-w-md font-light">Ergonomic grip that fits perfectly in your hand.</p>
             </OpacitySection>
 
             {/* 60% */}
             <OpacitySection start={0.55} end={0.7} align="right">
-                <h3 className="text-3xl md:text-5xl font-semibold text-black/80">Quiet motor.<br />Clean trim.</h3>
-                <p className="mt-2 text-black/50 max-w-md">Whisper-quiet technology meets medical-grade steel.</p>
+                <h3 className="text-3xl md:text-5xl font-semibold text-white/80">Quiet motor.<br />Clean trim.</h3>
+                <p className="mt-2 text-white/50 max-w-md font-light">Whisper-quiet technology meets medical-grade steel.</p>
             </OpacitySection>
 
             {/* 90% */}
             <OpacitySection start={0.85} end={0.95} align="center">
-                <h2 className="text-4xl md:text-6xl font-bold text-black/90">Premium results.</h2>
+                <h2 className="text-4xl md:text-6xl font-bold text-white/90">Premium results.</h2>
                 <div className="mt-6 pointer-events-auto">
-                    <button className="px-8 py-3 bg-black text-white rounded-full text-lg shadow-lg hover:scale-105 transition-all">
+                    <button className="px-8 py-3 bg-white text-black rounded-full text-lg shadow-lg hover:scale-105 transition-all font-semibold">
                         Shop ClipLux
                     </button>
                 </div>
